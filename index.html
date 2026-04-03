@@ -368,14 +368,30 @@ function persist(){
   lsSet('gf4',JSON.stringify(d));
 }
 function restore(){
-  const raw=lsGet('gf4');
-  if(!raw)return;
+  // Try current key first
+  let raw=lsGet('gf4');
+  // Fallback to older keys from previous app versions
+  if(!raw) raw=lsGet('golf_v3');
+  if(!raw) raw=lsGet('golf_v2');
+  if(!raw) return;
   try{
     const d=JSON.parse(raw);
-    if(d.hist)  S.hist=d.hist;
-    if(d.courses)S.courses=d.courses;
-    if(d.ih)    S.ih=d.ih;
-    if(d.ph)    S.ph=d.ph;
+    // Support both old field names (history/indivHcp/pairHcp) and new (hist/ih/ph)
+    if(d.hist||d.history)    S.hist    = d.hist    || d.history;
+    if(d.courses)             S.courses = d.courses;
+    if(d.ih||d.indivHcp)     S.ih      = d.ih      || d.indivHcp;
+    if(d.ph||d.pairHcp)      S.ph      = d.ph      || d.pairHcp;
+    // If loaded from old key, also extract courses embedded in rounds
+    // (old versions stored course name in round.course but courses dict separately)
+    S.hist.forEach(r=>{
+      // if round has a course name but S.courses doesn't have it, try to recover
+      // from the round's own hole data if available
+      if(r.course && !S.courses[r.course] && r.holes){
+        S.courses[r.course]={name:r.course,holes:r.holes,slope:113,rating:72,par:72};
+      }
+    });
+    // Re-save under current key so next load is fast
+    persist();
   }catch(e){}
 }
 
@@ -960,14 +976,22 @@ function importData(input){
     const st=document.getElementById('import-status');
     try{
       const d=JSON.parse(e.target.result);
-      if(!d.hist||!Array.isArray(d.hist))throw new Error('bad');
+      // Support old field names from previous versions
+      const hist = d.hist || d.history;
+      if(!hist||!Array.isArray(hist))throw new Error('bad');
       const existing=new Set(S.hist.map(r=>r.id));
-      const newR=d.hist.filter(r=>!existing.has(r.id));
+      const newR=hist.filter(r=>!existing.has(r.id));
       S.hist=[...newR,...S.hist].sort((a,b)=>(b.id||0)-(a.id||0));
       if(d.courses)S.courses={...S.courses,...d.courses};
-      if(d.ih)S.ih=d.ih;
-      if(d.ph)S.ph=d.ph;
-      persist();renderHistory();
+      if(d.ih||d.indivHcp)S.ih=d.ih||d.indivHcp;
+      if(d.ph||d.pairHcp) S.ph=d.ph||d.pairHcp;
+      // recover courses embedded in rounds if missing
+      S.hist.forEach(r=>{
+        if(r.course&&!S.courses[r.course]&&r.holes){
+          S.courses[r.course]={name:r.course,holes:r.holes,slope:113,rating:72,par:72};
+        }
+      });
+      persist();rebuildCourseSelect();renderHistory();
       const n=newR.length;
       st.style.cssText='display:block;color:var(--gd);background:var(--gl);padding:8px 12px;border-radius:6px;';
       st.textContent=n>0?`✓ ${n} ronda${n!==1?'s':''} importada${n!==1?'s':''}.`:'✓ Sin rondas nuevas, datos actualizados.';
