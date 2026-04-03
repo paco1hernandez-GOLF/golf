@@ -663,7 +663,12 @@ function totals(pid){
   if(e('b9-'+pid))e('b9-'+pid).textContent=b9||'-';
   if(e('tot-'+pid))e('tot-'+pid).textContent=(f9+b9)||'-';
 }
-function sc2(el,d){el.textContent=d===0?'AS':d>0?`+${d}`:`${d}`;el.className=el.className.replace(/ cp| cn| cz/g,'');el.classList.add(d>0?'cp':d<0?'cn':'cz');}
+function sc2(el,d,dot){
+  const txt=d===0?'AS':d>0?`+${d}`:`${d}`;
+  el.innerHTML=dot?`${txt} ●`:txt;
+  el.className=el.className.replace(/ cp| cn| cz/g,'');
+  el.classList.add(d>0?'cp':d<0?'cn':'cz');
+}
 
 function refreshBets(){
   const h=hs();
@@ -673,11 +678,18 @@ function refreshBets(){
     let f9A=0,f9B=0,b9A=0,b9B=0;
     for(let i=0;i<18;i++){
       const el=document.getElementById(`bc-${key}-${i+1}`);if(!el)continue;
+      const idx=h[i]?.hcp||i+1;
+      const hasStroke=idx<=n; // receiver has a stroke on this hole
       const sA=scA[i],sB=scB[i];
-      if(!sA||!sB){el.textContent='';el.className=el.className.replace(/ cp| cn| cz/g,'');continue;}
-      const idx=h[i]?.hcp||i+1,aA=sA-(rcv===pA?ga(n,idx):0),aB=sB-(rcv===pB?ga(n,idx):0);
-      if(i<9){if(aA<aB)f9A++;else if(aA>aB)f9B++;sc2(el,f9A-f9B);}
-      else    {if(aA<aB)b9A++;else if(aA>aB)b9B++;sc2(el,b9A-b9B);}
+      if(!sA||!sB){
+        // no score yet — show dot only if receiver has stroke here
+        el.className=el.className.replace(/ cp| cn| cz/g,'');
+        el.innerHTML=hasStroke?'<span style="color:var(--hnt);font-size:9px;line-height:1;">●</span>':'';
+        continue;
+      }
+      const aA=sA-(rcv===pA?ga(n,idx):0),aB=sB-(rcv===pB?ga(n,idx):0);
+      if(i<9){if(aA<aB)f9A++;else if(aA>aB)f9B++;sc2(el,f9A-f9B,hasStroke);}
+      else    {if(aA<aB)b9A++;else if(aA>aB)b9B++;sc2(el,b9A-b9B,hasStroke);}
     }
     const pa=gp(pA),pb=gp(pB);
     const fd=scA.slice(0,9).filter(Boolean).length===9&&scB.slice(0,9).filter(Boolean).length===9;
@@ -701,10 +713,16 @@ function refreshPairBets(){
     let cA=0,cB=0;
     for(let i=0;i<18;i++){
       const el=document.getElementById(`pbc-${pm.id}-${i+1}`);if(!el)continue;
+      const idx=h[i]?.hcp||i+1;
+      const hasStroke=idx<=n; // teamB holder has a stroke on this hole
       const a0=s0[i],a1=s1[i],b0=s2[i],b1=s3[i];
-      if(!a0||!a1||!b0||!b1){el.textContent='';el.className=el.className.replace(/ cp| cn| cz/g,'');continue;}
-      const idx=h[i]?.hcp||i+1,bA=Math.min(a0,a1),bB=Math.min(b0-(pm.tB[0]===holder?ga(n,idx):0),b1-(pm.tB[1]===holder?ga(n,idx):0));
-      if(bA<bB)cA++;else if(bB<bA)cB++;sc2(el,cA-cB);
+      if(!a0||!a1||!b0||!b1){
+        el.className=el.className.replace(/ cp| cn| cz/g,'');
+        el.innerHTML=hasStroke?'<span style="color:var(--hnt);font-size:9px;line-height:1;">●</span>':'';
+        continue;
+      }
+      const bA=Math.min(a0,a1),bB=Math.min(b0-(pm.tB[0]===holder?ga(n,idx):0),b1-(pm.tB[1]===holder?ga(n,idx):0));
+      if(bA<bB)cA++;else if(bB<bA)cB++;sc2(el,cA-cB,hasStroke);
     }
     const tA=pm.tA.map(p=>gp(p).ini).join('/'),tB=pm.tB.map(p=>gp(p).ini).join('/'),diff=cA-cB;
     const f9e=document.getElementById(`pbf9-${pm.id}`);
