@@ -343,6 +343,90 @@ const DEF_HCP={
 const DEF_PHP={pm1:{n:8},pm2:{n:5}};
 
 // ═══════════════════════════════════════════════════════
+// PRESET COURSES — pre-loaded from official scorecards
+// Always available, never overwritten by user data
+// ═══════════════════════════════════════════════════════
+const PRESET_COURSES={
+  'Tabachines':{
+    name:'Tabachines', slope:137, rating:71.8, par:72,
+    holes:[
+      {par:4,hcp:5},{par:4,hcp:11},{par:3,hcp:13},{par:5,hcp:1},{par:3,hcp:15},
+      {par:5,hcp:3},{par:5,hcp:7},{par:4,hcp:9},{par:3,hcp:17},
+      {par:4,hcp:6},{par:5,hcp:12},{par:3,hcp:18},{par:4,hcp:10},
+      {par:4,hcp:2},{par:5,hcp:14},{par:4,hcp:8},{par:3,hcp:16},{par:4,hcp:4}
+    ]
+  },
+  'Bosque Real Ejecutivo':{
+    // 9-hole course played twice: hoyos 1-9 blancos, 10-18 azules
+    // Par 36 cada vuelta. Índices estimados (sin scorecard oficial disponible)
+    name:'Bosque Real Ejecutivo', slope:113, rating:69.0, par:72,
+    holes:[
+      // Vuelta blanca (hoyos 1-9)
+      {par:4,hcp:1},{par:3,hcp:7},{par:4,hcp:3},{par:5,hcp:9},{par:4,hcp:5},
+      {par:3,hcp:11},{par:5,hcp:13},{par:4,hcp:15},{par:4,hcp:17},
+      // Vuelta azul (hoyos 10-18, mismos hoyos con tees azules)
+      {par:4,hcp:2},{par:3,hcp:8},{par:4,hcp:4},{par:5,hcp:10},{par:4,hcp:6},
+      {par:3,hcp:12},{par:5,hcp:14},{par:4,hcp:16},{par:4,hcp:18}
+    ]
+  },
+  'Amanali':{
+    // Índices por hoyo estimados — actualizar con scorecard oficial
+    name:'Amanali', slope:135, rating:73.5, par:72,
+    holes:[
+      {par:4,hcp:3},{par:5,hcp:11},{par:3,hcp:15},{par:4,hcp:7},{par:5,hcp:1},
+      {par:4,hcp:9},{par:3,hcp:17},{par:4,hcp:5},{par:4,hcp:13},
+      {par:4,hcp:4},{par:3,hcp:16},{par:5,hcp:2},{par:4,hcp:10},
+      {par:4,hcp:8},{par:5,hcp:6},{par:3,hcp:18},{par:4,hcp:12},{par:4,hcp:14}
+    ]
+  },
+  'Malinalco':{
+    name:'Malinalco', slope:135, rating:70.1, par:72,
+    holes:[
+      {par:4,hcp:3},{par:5,hcp:9},{par:5,hcp:13},{par:3,hcp:15},{par:4,hcp:1},
+      {par:4,hcp:7},{par:4,hcp:11},{par:3,hcp:17},{par:4,hcp:5},
+      {par:4,hcp:12},{par:3,hcp:16},{par:4,hcp:6},{par:4,hcp:8},
+      {par:4,hcp:14},{par:5,hcp:2},{par:4,hcp:4},{par:3,hcp:18},{par:5,hcp:10}
+    ]
+  },
+  'Los Encinos':{
+    name:'Los Encinos', slope:133, rating:70.4, par:72,
+    holes:[
+      {par:5,hcp:15},{par:3,hcp:11},{par:4,hcp:9},{par:3,hcp:17},{par:4,hcp:1},
+      {par:3,hcp:5},{par:5,hcp:7},{par:4,hcp:3},{par:5,hcp:13},
+      {par:4,hcp:8},{par:4,hcp:6},{par:4,hcp:18},{par:5,hcp:2},
+      {par:3,hcp:4},{par:4,hcp:10},{par:3,hcp:12},{par:4,hcp:14},{par:5,hcp:16}
+    ]
+  },
+  'Centro Asturiano':{
+    name:'Centro Asturiano', slope:123, rating:73.1, par:72,
+    holes:[
+      {par:4,hcp:7},{par:5,hcp:9},{par:3,hcp:3},{par:4,hcp:11},{par:4,hcp:13},
+      {par:4,hcp:1},{par:5,hcp:15},{par:3,hcp:5},{par:4,hcp:17},
+      {par:5,hcp:8},{par:3,hcp:12},{par:4,hcp:18},{par:4,hcp:2},
+      {par:4,hcp:4},{par:5,hcp:10},{par:4,hcp:14},{par:3,hcp:16},{par:4,hcp:6}
+    ]
+  },
+  'Paraíso Country Club':{
+    name:'Paraíso Country Club', slope:130, rating:73.2, par:72,
+    holes:[
+      {par:4,hcp:17},{par:5,hcp:5},{par:4,hcp:15},{par:3,hcp:1},{par:4,hcp:9},
+      {par:5,hcp:3},{par:4,hcp:7},{par:3,hcp:11},{par:4,hcp:13},
+      {par:4,hcp:12},{par:3,hcp:18},{par:4,hcp:8},{par:4,hcp:6},
+      {par:5,hcp:16},{par:4,hcp:4},{par:3,hcp:2},{par:4,hcp:10},{par:5,hcp:14}
+    ]
+  },
+  'Santa Fe Social Club':{
+    name:'Santa Fe Social Club', slope:123, rating:73.1, par:72,
+    holes:[
+      {par:4,hcp:17},{par:5,hcp:3},{par:3,hcp:13},{par:4,hcp:1},{par:4,hcp:5},
+      {par:3,hcp:15},{par:5,hcp:9},{par:4,hcp:7},{par:4,hcp:11},
+      {par:4,hcp:12},{par:4,hcp:8},{par:3,hcp:16},{par:5,hcp:4},
+      {par:4,hcp:6},{par:5,hcp:2},{par:4,hcp:10},{par:3,hcp:18},{par:4,hcp:14}
+    ]
+  },
+};
+
+// ═══════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════
 let S={
@@ -368,30 +452,26 @@ function persist(){
   lsSet('gf4',JSON.stringify(d));
 }
 function restore(){
-  // Try current key first
-  let raw=lsGet('gf4');
-  // Fallback to older keys from previous app versions
-  if(!raw) raw=lsGet('golf_v3');
-  if(!raw) raw=lsGet('golf_v2');
-  if(!raw) return;
+  // Always start with preset courses so they're always available
+  S.courses={...PRESET_COURSES};
+  const raw=lsGet('gf4');
+  // Also try old storage keys from previous versions
+  const raw2=raw||lsGet('golf_v3')||lsGet('golf_v2');
+  if(!raw2)return;
   try{
-    const d=JSON.parse(raw);
-    // Support both old field names (history/indivHcp/pairHcp) and new (hist/ih/ph)
-    if(d.hist||d.history)    S.hist    = d.hist    || d.history;
-    if(d.courses)             S.courses = d.courses;
-    if(d.ih||d.indivHcp)     S.ih      = d.ih      || d.indivHcp;
-    if(d.ph||d.pairHcp)      S.ph      = d.ph      || d.pairHcp;
-    // If loaded from old key, also extract courses embedded in rounds
-    // (old versions stored course name in round.course but courses dict separately)
+    const d=JSON.parse(raw2);
+    if(d.hist||d.history) S.hist=d.hist||d.history;
+    // Merge user courses ON TOP of presets (user edits win)
+    if(d.courses) S.courses={...S.courses,...d.courses};
+    if(d.ih||d.indivHcp) S.ih=d.ih||d.indivHcp;
+    if(d.ph||d.pairHcp)  S.ph=d.ph||d.pairHcp;
+    // Recover any courses embedded in old round records
     S.hist.forEach(r=>{
-      // if round has a course name but S.courses doesn't have it, try to recover
-      // from the round's own hole data if available
-      if(r.course && !S.courses[r.course] && r.holes){
+      if(r.course&&!S.courses[r.course]&&r.holes)
         S.courses[r.course]={name:r.course,holes:r.holes,slope:113,rating:72,par:72};
-      }
     });
-    // Re-save under current key so next load is fast
-    persist();
+    // Persist under current key if loaded from an old one
+    if(!raw) persist();
   }catch(e){}
 }
 
@@ -502,9 +582,21 @@ function buildPairPreview(){
 // COURSE
 // ═══════════════════════════════════════════════════════
 function rebuildCourseSelect(){
-  const sel=document.getElementById('course-select'),saved=Object.keys(S.courses);
-  sel.innerHTML='<option value="">-- Seleccionar --</option>'+saved.map(c=>`<option value="${c}">${c}</option>`).join('')+'<option value="new">+ Nuevo campo</option>';
-  if(S.course&&saved.includes(S.course))sel.value=S.course;
+  const sel=document.getElementById('course-select');
+  const presetNames=Object.keys(PRESET_COURSES);
+  const userNames=Object.keys(S.courses).filter(c=>!presetNames.includes(c));
+  let html='<option value="">-- Seleccionar campo --</option>';
+  html+='<optgroup label="Campos pre-cargados">';
+  html+=presetNames.map(c=>`<option value="${c}">${c}</option>`).join('');
+  html+='</optgroup>';
+  if(userNames.length){
+    html+='<optgroup label="Mis campos">';
+    html+=userNames.map(c=>`<option value="${c}">${c}</option>`).join('');
+    html+='</optgroup>';
+  }
+  html+='<option value="new">+ Nuevo campo</option>';
+  sel.innerHTML=html;
+  if(S.course&&S.courses[S.course])sel.value=S.course;
 }
 function onCourseSelect(){
   const v=document.getElementById('course-select').value;
@@ -976,21 +1068,15 @@ function importData(input){
     const st=document.getElementById('import-status');
     try{
       const d=JSON.parse(e.target.result);
-      // Support old field names from previous versions
-      const hist = d.hist || d.history;
+      const hist=d.hist||d.history;
       if(!hist||!Array.isArray(hist))throw new Error('bad');
       const existing=new Set(S.hist.map(r=>r.id));
       const newR=hist.filter(r=>!existing.has(r.id));
       S.hist=[...newR,...S.hist].sort((a,b)=>(b.id||0)-(a.id||0));
-      if(d.courses)S.courses={...S.courses,...d.courses};
-      if(d.ih||d.indivHcp)S.ih=d.ih||d.indivHcp;
-      if(d.ph||d.pairHcp) S.ph=d.ph||d.pairHcp;
-      // recover courses embedded in rounds if missing
-      S.hist.forEach(r=>{
-        if(r.course&&!S.courses[r.course]&&r.holes){
-          S.courses[r.course]={name:r.course,holes:r.holes,slope:113,rating:72,par:72};
-        }
-      });
+      // Merge: presets always win, user courses on top, imported last
+      if(d.courses) S.courses={...PRESET_COURSES,...d.courses};
+      if(d.ih||d.indivHcp) S.ih=d.ih||d.indivHcp;
+      if(d.ph||d.pairHcp)  S.ph=d.ph||d.pairHcp;
       persist();rebuildCourseSelect();renderHistory();
       const n=newR.length;
       st.style.cssText='display:block;color:var(--gd);background:var(--gl);padding:8px 12px;border-radius:6px;';
