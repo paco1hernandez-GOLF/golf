@@ -405,6 +405,7 @@ const SEED_PLAYERS=[
 const SEED_PMS=[
   {id:'pm1',tA:['rafa','gerardo'],tB:['paco','poncho'],   holder:'paco',  label:'Rafa/Gerardo vs Paco/Poncho'},
   {id:'pm2',tA:['rafa','gerardo'],tB:['poncho','giancarlo'],holder:'poncho',label:'Rafa/Gerardo vs Poncho/Giancarlo'},
+  {id:'pm3',p1:'gerardo',p2:'giancarlo',label:'Gerardo vs Giancarlo'},
 ];
 // Color palette for new players
 const PLAYER_COLORS=[
@@ -424,7 +425,7 @@ const DEF_HCP={
   'poncho-rafa':      {from:'rafa',   to:'poncho',   n:7},
   'giancarlo-rafa':   {from:'rafa',   to:'giancarlo',n:9},
   'gerardo-poncho':   {from:'gerardo',to:'poncho',   n:4},
-  'giancarlo-gerardo':{from:'gerardo',to:'giancarlo',n:5},
+  'giancarlo-gerardo':{from:'gerardo',to:'giancarlo',n:3},
   'giancarlo-poncho': {from:'poncho', to:'giancarlo',n:3},
 };
 const DEF_PHP={pm1:{n:8},pm2:{n:5}};
@@ -509,6 +510,15 @@ const PRESET_COURSES={
       {par:3,hcp:15},{par:5,hcp:9},{par:4,hcp:7},{par:4,hcp:11},
       {par:4,hcp:12},{par:4,hcp:8},{par:3,hcp:16},{par:5,hcp:4},
       {par:4,hcp:6},{par:5,hcp:2},{par:4,hcp:10},{par:3,hcp:18},{par:4,hcp:14}
+    ]
+  },
+  'Madeiras Country Club':{
+    name:'Madeiras Country Club', slope:128, rating:69.9, par:72,
+    holes:[
+      {par:5,hcp:5},{par:4,hcp:13},{par:5,hcp:3},{par:4,hcp:9},{par:3,hcp:17},
+      {par:4,hcp:11},{par:4,hcp:7},{par:3,hcp:15},{par:4,hcp:1},
+      {par:4,hcp:14},{par:4,hcp:8},{par:3,hcp:18},{par:5,hcp:2},
+      {par:4,hcp:12},{par:5,hcp:6},{par:3,hcp:16},{par:4,hcp:4},{par:4,hcp:10}
     ]
   },
 };
