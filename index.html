@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="Golf ⛳">
 <title>Golf Foursome</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
   --green:#0F6E56;--gl:#E1F5EE;--gd:#085041;
@@ -216,6 +219,7 @@ input[type=number]{-moz-appearance:textfield;}
     <div class="hdr-sub" id="hdr-sub">Calculadora de apuestas</div>
   </div>
   <button class="hdr-btn" id="btn-new">+ Nueva ronda</button>
+  <span id="fb-status" title="Estado de conexión" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0;margin-left:4px;"></span>
 </header>
 
 <!-- NAV TABS -->
@@ -540,9 +544,75 @@ let S={
 };
 
 // ═══════════════════════════════════════════════════════
-// STORAGE — works on file:// (iOS fallback) and http://
+// FIREBASE — real-time sync for active round
+// Only scores, sp, course, date are synced live.
+// History/handicaps stay in localStorage (export/import to share).
 // ═══════════════════════════════════════════════════════
-let _mem={};// in-memory fallback for when localStorage is blocked
+const FB_CFG={
+  apiKey:"AIzaSyBraxr7C3N_uIcaMKSy3tQARRnVtfgA61w",
+  authDomain:"golf-foursome.firebaseapp.com",
+  databaseURL:"https://golf-foursome-default-rtdb.firebaseio.com",
+  projectId:"golf-foursome",
+  storageBucket:"golf-foursome.firebasestorage.app",
+  messagingSenderId:"332365875587",
+  appId:"1:332365875587:web:22f553f00f804f51850eb6"
+};
+firebase.initializeApp(FB_CFG);
+const DB=firebase.database();
+const ROUND_REF=DB.ref('ronda_activa');
+
+let _fbListening=false;   // are we subscribed to Firebase?
+let _localUpdate=false;   // flag to ignore our own writes bouncing back
+
+// Status dot
+function fbStatus(color){
+  const el=document.getElementById('fb-status');
+  if(el)el.style.background=color;
+}
+
+// Push current round state to Firebase (scores + metadata)
+function fbPush(){
+  const payload={
+    scores:S.scores||{},
+    sp:S.sp||[],
+    course:S.course||'',
+    date:S.date||'',
+    ts:Date.now()
+  };
+  _localUpdate=true;
+  ROUND_REF.set(payload).catch(()=>fbStatus('#f97316'));
+}
+
+// Listen for remote changes and apply them to the UI
+function fbListen(){
+  if(_fbListening)return;
+  _fbListening=true;
+  ROUND_REF.on('value',snap=>{
+    if(_localUpdate){_localUpdate=false;return;}
+    const d=snap.val();
+    if(!d)return;
+    // Apply remote state
+    if(d.scores) S.scores=d.scores;
+    if(d.sp&&Array.isArray(d.sp)) S.sp=d.sp;
+    if(d.course) S.course=d.course;
+    if(d.date)   S.date=d.date;
+    // Re-render scorecard if we're on it
+    if(S.tab==='scorecard') buildSC();
+    else{
+      // Quietly refresh bets without rebuilding the whole table
+      // so players on other tabs also see updated bet rows if they switch
+    }
+    fbStatus('#22c55e');
+  });
+  DB.ref('.info/connected').on('value',snap=>{
+    fbStatus(snap.val()?'#22c55e':'#f97316');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// STORAGE — localStorage for history/config; Firebase for live round
+// ═══════════════════════════════════════════════════════
+let _mem={};
 function lsSet(k,v){try{localStorage.setItem(k,v);return;}catch(e){}  _mem[k]=v;}
 function lsGet(k){try{const v=localStorage.getItem(k);if(v!==null)return v;}catch(e){} return _mem[k]||null;}
 
@@ -742,6 +812,7 @@ function saveAndPlay(){
   S.courses[nm]={name:nm,holes,slope,rating,par};
   persist();rebuildCourseSelect();
   document.getElementById('hdr-sub').textContent=`${nm} · ${S.date}`;
+  fbPush(); // broadcast round start to all devices
   goTo('scorecard');
 }
 
@@ -864,6 +935,7 @@ function buildSC(){
       S.scores[pid][hole-1]=parseInt(this.value)||0;
       totals(pid);col(pid,hole,S.scores[pid][hole-1]);
       refreshBets();refreshPairBets();
+      fbPush(); // sync to Firebase
     });
   });
 }
@@ -1398,6 +1470,7 @@ function deleteMatch(pmid){
 function newRound(){
   S.scores={};S._ir={};S.date=new Date().toISOString().slice(0,10);
   document.getElementById('round-date').value=S.date;
+  ROUND_REF.remove().catch(()=>{});// clear live round from Firebase
   goTo('setup');
 }
 
@@ -1504,6 +1577,28 @@ document.addEventListener('DOMContentLoaded',function(){
   buildHcpLists();
   renderHistory();
   goTo('setup',true);// no side effects on init
+
+  // Start Firebase real-time listener
+  fbListen();
+
+  // If Firebase has an active round, offer to join it
+  ROUND_REF.once('value').then(snap=>{
+    const d=snap.val();
+    if(!d||!d.course)return;
+    const banner=document.createElement('div');
+    banner.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#0F6E56;color:#fff;padding:14px 16px;z-index:9999;display:flex;align-items:center;gap:12px;font-family:inherit;box-shadow:0 -2px 8px rgba(0,0,0,.2);';
+    banner.innerHTML=`<div style="flex:1;font-size:14px;">⛳ Hay una ronda activa: <strong>${d.course}</strong> · ${d.date}</div><button id="btn-join" style="background:#fff;color:#0F6E56;border:none;border-radius:8px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px;">Unirse</button><button id="btn-dismiss" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px;">Ignorar</button>`;
+    document.body.appendChild(banner);
+    document.getElementById('btn-join').onclick=()=>{
+      if(d.scores) S.scores=d.scores;
+      if(d.sp&&Array.isArray(d.sp)) S.sp=d.sp;
+      if(d.course){S.course=d.course;document.getElementById('hdr-sub').textContent=`${d.course} · ${d.date||S.date}`;}
+      if(d.date) S.date=d.date;
+      banner.remove();
+      buildSC();goTo('scorecard');
+    };
+    document.getElementById('btn-dismiss').onclick=()=>banner.remove();
+  }).catch(()=>{});
 });
 </script>
 </body>
