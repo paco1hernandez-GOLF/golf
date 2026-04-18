@@ -567,8 +567,10 @@ function fbStatus(color){
   if(el)el.style.background=color;
 }
 
-// Push current round state to Firebase
+// Push complete round configuration to Firebase
+// Only sends when a course has been selected (round is truly active)
 function fbPush(){
+  if(!S.course)return; // don't push during setup before course is chosen
   const payload={
     scores:S.scores||{},
     sp:S.sp||[],
@@ -577,6 +579,8 @@ function fbPush(){
     courseData:S.course&&S.courses[S.course]?S.courses[S.course]:null,
     ih:S.ih||{},
     ph:S.ph||{},
+    players:S.players||[],
+    pms:S.pms||[],
     ts:Date.now()
   };
   ROUND_REF.set(payload)
@@ -592,17 +596,29 @@ function fbApply(d){
   if(d.sp&&JSON.stringify(d.sp)!==JSON.stringify(S.sp)){S.sp=d.sp;changed=true;}
   if(d.course&&d.course!==S.course){S.course=d.course;changed=true;}
   if(d.date&&d.date!==S.date){S.date=d.date;changed=true;}
-  // Restore full course data so holes/pars/hcps are available
-  if(d.courseData&&d.course){
-    S.courses[d.course]=d.courseData;changed=true;
+  // Full course data (holes, pars, hcp indexes)
+  if(d.courseData&&d.course){S.courses[d.course]=d.courseData;changed=true;}
+  // Handicaps — merge so new pairs always present
+  if(d.ih){S.ih={...DEF_HCP,...d.ih};changed=true;}
+  if(d.ph){S.ph={...S.ph,...d.ph};changed=true;}
+  // Players and matches
+  if(d.players&&Array.isArray(d.players)&&d.players.length){
+    const seedIds=new Set(SEED_PLAYERS.map(p=>p.id));
+    const extras=d.players.filter(p=>!seedIds.has(p.id));
+    S.players=[...SEED_PLAYERS,...extras];
+    changed=true;
   }
-  // Restore handicaps so bet rows show correctly
-  if(d.ih) S.ih={...DEF_HCP,...d.ih};
-  if(d.ph) S.ph={...S.ph,...d.ph};
+  if(d.pms&&Array.isArray(d.pms)&&d.pms.length){
+    const seedIds=new Set(SEED_PMS.map(p=>p.id));
+    const extras=d.pms.filter(p=>!seedIds.has(p.id));
+    S.pms=[...SEED_PMS,...extras];
+    changed=true;
+  }
   if(changed&&S.tab==='scorecard') buildSC();
+  if(changed&&S.tab==='handicaps') buildHcpLists();
   if(changed){
     const sub=document.getElementById('hdr-sub');
-    if(sub)sub.textContent=`${S.course} · ${S.date}`;
+    if(sub&&S.course)sub.textContent=`${S.course} · ${S.date}`;
   }
   fbStatus('#22c55e');
 }
@@ -1456,17 +1472,14 @@ function addPlayer(){
   const colorIdx=parseInt(document.getElementById('np-colors').querySelector('.on')?.dataset.idx||'0');
   const c=PLAYER_COLORS[colorIdx]||PLAYER_COLORS[0];
   const id=makePlayerId(name);
-  // Add player
   S.players.push({id,name,ini,col:c.col,bg:c.bg});
-  // Create ih entries vs all existing players at n=0
   S.players.forEach(p=>{
     if(p.id===id)return;
     const key=pk(id,p.id);
     if(!S.ih[key])S.ih[key]={from:id,to:p.id,n:0};
   });
-  // Auto-select for current round
   if(!S.sp.includes(id))S.sp.push(id);
-  persist();
+  persist();fbPush();
   nameEl.value='';iniEl.value='';
   buildGrupo();buildPlayers();buildHcpLists();
 }
@@ -1480,7 +1493,7 @@ function deletePlayer(pid){
   Object.keys(S.ih).forEach(k=>{if(k.split('-').includes(pid))delete S.ih[k];});
   const seedPmIds=new Set(SEED_PMS.map(x=>x.id));
   S.pms=S.pms.filter(pm=>seedPmIds.has(pm.id)||![...(pm.tA||[]),(pm.tB||[]),pm.p1,pm.p2].filter(Boolean).includes(pid));
-  persist();buildGrupo();buildPlayers();buildHcpLists();
+  persist();fbPush();buildGrupo();buildPlayers();buildHcpLists();
 }
 
 function addIndivMatch(){
@@ -1493,7 +1506,7 @@ function addIndivMatch(){
   const label=`${gp(p1)?.name||p1} vs ${gp(p2)?.name||p2}`;
   S.pms.push({id,p1,p2,label});
   if(!S.ih[key])S.ih[key]={from:p1,to:p2,n:0};
-  persist();buildGrupo();
+  persist();fbPush();buildGrupo();
 }
 
 function addPairMatch(){
@@ -1507,7 +1520,7 @@ function addPairMatch(){
   const label=`${_mpTeamA.map(p=>gp(p)?.name||p).join('/')} vs ${_mpTeamB.map(p=>gp(p)?.name||p).join('/')}`;
   S.pms.push({id,tA:[..._mpTeamA],tB:[..._mpTeamB],holder:_mpHolder[0],label});
   S.ph[id]={n:0};
-  persist();buildGrupo();
+  persist();fbPush();buildGrupo();
 }
 
 function deleteMatch(pmid){
@@ -1516,7 +1529,7 @@ function deleteMatch(pmid){
   if(!confirm(`¿Eliminar el match "${pm?.label||pmid}"?`))return;
   S.pms=S.pms.filter(p=>p.id!==pmid);
   delete S.ph[pmid];
-  persist();buildGrupo();
+  persist();fbPush();buildGrupo();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1524,8 +1537,9 @@ function deleteMatch(pmid){
 // ═══════════════════════════════════════════════════════
 function newRound(){
   S.scores={};S._ir={};S.date=new Date().toISOString().slice(0,10);
+  _fbJoined=false;
   document.getElementById('round-date').value=S.date;
-  ROUND_REF.remove().catch(()=>{});// clear live round from Firebase
+  ROUND_REF.remove().catch(()=>{});// clear Firebase so no stale banner appears
   goTo('setup');
 }
 
@@ -1576,15 +1590,16 @@ document.addEventListener('DOMContentLoaded',function(){
 
   // HCP list — swap and update (delegated)
   document.getElementById('hcp-list').addEventListener('click',function(e){
-    if(e.target.classList.contains('swp')){const k=e.target.dataset.k;if(!k)return;const h=S.ih[k];if(!h)return;const t=h.to;h.to=h.from;h.from=t;buildHcpLists();refreshBets();}
+    if(e.target.classList.contains('swp')){const k=e.target.dataset.k;if(!k)return;const h=S.ih[k];if(!h)return;const t=h.to;h.to=h.from;h.from=t;buildHcpLists();refreshBets();fbPush();}
   });
   document.getElementById('hcp-list').addEventListener('change',function(e){
     const k=e.target.dataset.k;if(k&&S.ih[k])S.ih[k].n=Math.max(0,parseInt(e.target.value)||0);
     const pm=e.target.dataset.pm;if(pm&&S.ph[pm])S.ph[pm].n=Math.max(0,parseInt(e.target.value)||0);
-    refreshBets();
+    refreshBets();fbPush();
   });
   document.getElementById('hcp-pairs-list').addEventListener('change',function(e){
     const pm=e.target.dataset.pm;if(pm&&S.ph[pm])S.ph[pm].n=Math.max(0,parseInt(e.target.value)||0);
+    fbPush();
   });
 
   // ── GRUPO listeners ──
