@@ -545,8 +545,6 @@ let S={
 
 // ═══════════════════════════════════════════════════════
 // FIREBASE — real-time sync for active round
-// Only scores, sp, course, date are synced live.
-// History/handicaps stay in localStorage (export/import to share).
 // ═══════════════════════════════════════════════════════
 const FB_CFG={
   apiKey:"AIzaSyBraxr7C3N_uIcaMKSy3tQARRnVtfgA61w",
@@ -561,16 +559,15 @@ firebase.initializeApp(FB_CFG);
 const DB=firebase.database();
 const ROUND_REF=DB.ref('ronda_activa');
 
-let _fbListening=false;   // are we subscribed to Firebase?
-let _localUpdate=false;   // flag to ignore our own writes bouncing back
+let _fbJoined=false;   // true once this device has joined the active round
+let _fbBanner=null;    // reference to the join banner element
 
-// Status dot
 function fbStatus(color){
   const el=document.getElementById('fb-status');
   if(el)el.style.background=color;
 }
 
-// Push current round state to Firebase (scores + metadata)
+// Push current round state to Firebase
 function fbPush(){
   const payload={
     scores:S.scores||{},
@@ -579,33 +576,79 @@ function fbPush(){
     date:S.date||'',
     ts:Date.now()
   };
-  _localUpdate=true;
-  ROUND_REF.set(payload).catch(()=>fbStatus('#f97316'));
+  ROUND_REF.set(payload)
+    .then(()=>fbStatus('#22c55e'))
+    .catch(e=>{console.warn('Firebase write error:',e);fbStatus('#f97316');});
 }
 
-// Listen for remote changes and apply them to the UI
+// Apply incoming Firebase data to local state and refresh UI
+function fbApply(d){
+  if(!d||!d.course)return;
+  let changed=false;
+  if(JSON.stringify(d.scores)!==JSON.stringify(S.scores)){S.scores=d.scores||{};changed=true;}
+  if(d.sp&&JSON.stringify(d.sp)!==JSON.stringify(S.sp)){S.sp=d.sp;changed=true;}
+  if(d.course&&d.course!==S.course){S.course=d.course;changed=true;}
+  if(d.date&&d.date!==S.date){S.date=d.date;changed=true;}
+  if(changed&&S.tab==='scorecard') buildSC();
+  if(changed){
+    const sub=document.getElementById('hdr-sub');
+    if(sub)sub.textContent=`${S.course} · ${S.date}`;
+  }
+  fbStatus('#22c55e');
+}
+
+// Show banner inviting other devices to join an active round
+function fbShowBanner(d){
+  if(_fbBanner||_fbJoined)return; // already shown or already joined
+  if(!d||!d.course)return;
+  const banner=document.createElement('div');
+  _fbBanner=banner;
+  banner.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#0F6E56;color:#fff;padding:14px 16px;z-index:9999;display:flex;align-items:center;gap:12px;font-family:inherit;box-shadow:0 -2px 12px rgba(0,0,0,.25);';
+  banner.innerHTML=`
+    <div style="flex:1;">
+      <div style="font-size:14px;font-weight:600;">⛳ Ronda activa en curso</div>
+      <div style="font-size:12px;opacity:.85;margin-top:2px;">${d.course} · ${d.date||''}</div>
+    </div>
+    <button id="btn-join" style="background:#fff;color:#0F6E56;border:none;border-radius:8px;padding:9px 18px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px;flex-shrink:0;">Unirse →</button>
+    <button id="btn-dismiss" style="background:transparent;color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:9px 12px;cursor:pointer;font-family:inherit;font-size:13px;flex-shrink:0;">✕</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('btn-join').onclick=()=>{
+    _fbJoined=true;
+    fbApply(d);
+    banner.remove();_fbBanner=null;
+    buildSC();goTo('scorecard');
+  };
+  document.getElementById('btn-dismiss').onclick=()=>{
+    banner.remove();_fbBanner=null;
+  };
+}
+
+// Start listening — this is the SINGLE listener for everything
 function fbListen(){
-  if(_fbListening)return;
-  _fbListening=true;
-  ROUND_REF.on('value',snap=>{
-    if(_localUpdate){_localUpdate=false;return;}
-    const d=snap.val();
-    if(!d)return;
-    // Apply remote state
-    if(d.scores) S.scores=d.scores;
-    if(d.sp&&Array.isArray(d.sp)) S.sp=d.sp;
-    if(d.course) S.course=d.course;
-    if(d.date)   S.date=d.date;
-    // Re-render scorecard if we're on it
-    if(S.tab==='scorecard') buildSC();
-    else{
-      // Quietly refresh bets without rebuilding the whole table
-      // so players on other tabs also see updated bet rows if they switch
-    }
-    fbStatus('#22c55e');
-  });
+  // Connection status
   DB.ref('.info/connected').on('value',snap=>{
     fbStatus(snap.val()?'#22c55e':'#f97316');
+  });
+  // Live round data
+  ROUND_REF.on('value',snap=>{
+    const d=snap.val();
+    if(!d||!d.course){
+      // Round was cleared
+      if(_fbBanner){_fbBanner.remove();_fbBanner=null;}
+      return;
+    }
+    // Ignore stale rounds older than 12 hours
+    const age=Date.now()-(d.ts||0);
+    if(age>12*60*60*1000){
+      if(_fbBanner){_fbBanner.remove();_fbBanner=null;}
+      return;
+    }
+    if(_fbJoined||S.tab==='scorecard'){
+      fbApply(d);
+    } else {
+      fbShowBanner(d);
+    }
   });
 }
 
@@ -630,7 +673,9 @@ function restore(){
     const d=JSON.parse(raw2);
     if(d.hist||d.history) S.hist=d.hist||d.history;
     if(d.courses) S.courses={...S.courses,...d.courses};
-    if(d.ih||d.indivHcp) S.ih=d.ih||d.indivHcp;
+    // Merge DEF_HCP first so any new pairs are always present,
+    // then overlay stored values to preserve sliding history
+    if(d.ih||d.indivHcp) S.ih={...DEF_HCP,...(d.ih||d.indivHcp)};
     if(d.ph||d.pairHcp)  S.ph=d.ph||d.pairHcp;
     // Restore dynamic players — seed players always present, extras merged
     if(d.players&&Array.isArray(d.players)){
@@ -1578,27 +1623,8 @@ document.addEventListener('DOMContentLoaded',function(){
   renderHistory();
   goTo('setup',true);// no side effects on init
 
-  // Start Firebase real-time listener
+  // Start Firebase real-time listener (handles banner + live sync)
   fbListen();
-
-  // If Firebase has an active round, offer to join it
-  ROUND_REF.once('value').then(snap=>{
-    const d=snap.val();
-    if(!d||!d.course)return;
-    const banner=document.createElement('div');
-    banner.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#0F6E56;color:#fff;padding:14px 16px;z-index:9999;display:flex;align-items:center;gap:12px;font-family:inherit;box-shadow:0 -2px 8px rgba(0,0,0,.2);';
-    banner.innerHTML=`<div style="flex:1;font-size:14px;">⛳ Hay una ronda activa: <strong>${d.course}</strong> · ${d.date}</div><button id="btn-join" style="background:#fff;color:#0F6E56;border:none;border-radius:8px;padding:8px 16px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px;">Unirse</button><button id="btn-dismiss" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-size:13px;">Ignorar</button>`;
-    document.body.appendChild(banner);
-    document.getElementById('btn-join').onclick=()=>{
-      if(d.scores) S.scores=d.scores;
-      if(d.sp&&Array.isArray(d.sp)) S.sp=d.sp;
-      if(d.course){S.course=d.course;document.getElementById('hdr-sub').textContent=`${d.course} · ${d.date||S.date}`;}
-      if(d.date) S.date=d.date;
-      banner.remove();
-      buildSC();goTo('scorecard');
-    };
-    document.getElementById('btn-dismiss').onclick=()=>banner.remove();
-  }).catch(()=>{});
 });
 </script>
 </body>
