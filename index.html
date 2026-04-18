@@ -320,6 +320,9 @@ input[type=number]{-moz-appearance:textfield;}
       <input type="file" id="import-file" accept=".json" style="display:none;">
     </div>
     <div id="import-status" style="display:none;margin-top:10px;font-size:13px;padding:8px 12px;border-radius:6px;"></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:.5px solid var(--bdr);">
+      <button class="btn" id="btn-clear-hist" style="width:100%;color:var(--red);border-color:var(--red);">🗑 Borrar todo el historial</button>
+    </div>
   </div>
   <div class="card"><div class="ct">Balance acumulado</div><div id="stat-bal"></div></div>
   <div class="card"><div class="ct">Head-to-head</div><div id="stat-h2h"></div></div>
@@ -1583,6 +1586,15 @@ document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('btn-export').addEventListener('click',exportData);
   document.getElementById('btn-import-trigger').addEventListener('click',function(){document.getElementById('import-file').click();});
   document.getElementById('import-file').addEventListener('change',function(){importData(this);});
+
+  // Clear history
+  document.getElementById('btn-clear-hist').addEventListener('click',function(){
+    if(!S.hist.length){alert('El historial ya está vacío.');return;}
+    if(!confirm(`¿Borrar las ${S.hist.length} ronda${S.hist.length!==1?'s':''} del historial?\n\nEsto no se puede deshacer. Los handicaps actuales se conservan.`))return;
+    S.hist=[];
+    persist();
+    renderHistory();
+  });
 
   // Close detail
   document.getElementById('btn-close-detail').addEventListener('click',function(){goTo('history');});
