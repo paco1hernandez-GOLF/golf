@@ -574,6 +574,9 @@ function fbPush(){
     sp:S.sp||[],
     course:S.course||'',
     date:S.date||'',
+    courseData:S.course&&S.courses[S.course]?S.courses[S.course]:null,
+    ih:S.ih||{},
+    ph:S.ph||{},
     ts:Date.now()
   };
   ROUND_REF.set(payload)
@@ -589,6 +592,13 @@ function fbApply(d){
   if(d.sp&&JSON.stringify(d.sp)!==JSON.stringify(S.sp)){S.sp=d.sp;changed=true;}
   if(d.course&&d.course!==S.course){S.course=d.course;changed=true;}
   if(d.date&&d.date!==S.date){S.date=d.date;changed=true;}
+  // Restore full course data so holes/pars/hcps are available
+  if(d.courseData&&d.course){
+    S.courses[d.course]=d.courseData;changed=true;
+  }
+  // Restore handicaps so bet rows show correctly
+  if(d.ih) S.ih={...DEF_HCP,...d.ih};
+  if(d.ph) S.ph={...S.ph,...d.ph};
   if(changed&&S.tab==='scorecard') buildSC();
   if(changed){
     const sub=document.getElementById('hdr-sub');
