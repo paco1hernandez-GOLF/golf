@@ -591,19 +591,48 @@ function fbPush(){
     .catch(e=>{console.warn('Firebase write error:',e);fbStatus('#f97316');});
 }
 
+// Normalize Firebase value: arrays with gaps come back as objects {0:v,1:v,...}
+function normalizeScores(raw){
+  if(!raw)return{};
+  const out={};
+  Object.entries(raw).forEach(([pid,arr])=>{
+    if(Array.isArray(arr)){out[pid]=arr.map(v=>v||0);}
+    else if(arr&&typeof arr==='object'){
+      // Firebase object with numeric keys
+      const a=[];
+      Object.entries(arr).forEach(([k,v])=>{a[parseInt(k)]=v||0;});
+      out[pid]=a;
+    }
+  });
+  return out;
+}
+
+// Ensure S.ih has entries for every possible pair of players in S.sp
+function ensureIhPairs(){
+  const sp=S.sp;
+  for(let i=0;i<sp.length;i++)for(let j=i+1;j<sp.length;j++){
+    const key=pk(sp[i],sp[j]);
+    if(!S.ih[key])S.ih[key]={from:sp[i],to:sp[j],n:0};
+  }
+}
+
 // Apply incoming Firebase data to local state and refresh UI
 function fbApply(d){
   if(!d||!d.course)return;
   let changed=false;
-  if(JSON.stringify(d.scores)!==JSON.stringify(S.scores)){S.scores=d.scores||{};changed=true;}
-  if(d.sp&&JSON.stringify(d.sp)!==JSON.stringify(S.sp)){S.sp=d.sp;changed=true;}
+  // Normalize scores: Firebase may return objects instead of arrays
+  const newScores=normalizeScores(d.scores);
+  if(JSON.stringify(newScores)!==JSON.stringify(S.scores)){S.scores=newScores;changed=true;}
+  if(d.sp&&Array.isArray(d.sp)&&JSON.stringify(d.sp)!==JSON.stringify(S.sp)){S.sp=d.sp;changed=true;}
   if(d.course&&d.course!==S.course){S.course=d.course;changed=true;}
   if(d.date&&d.date!==S.date){S.date=d.date;changed=true;}
   // Full course data (holes, pars, hcp indexes)
   if(d.courseData&&d.course){S.courses[d.course]=d.courseData;changed=true;}
-  // Handicaps — merge so new pairs always present
-  if(d.ih){S.ih={...DEF_HCP,...d.ih};changed=true;}
-  if(d.ph){S.ph={...S.ph,...d.ph};changed=true;}
+  // Handicaps — merge so all pairs are present
+  if(d.ih){S.ih={...DEF_HCP,...d.ih};}
+  if(d.ph){S.ph={...S.ph,...d.ph};}
+  // Ensure all sp pairs have ih entries
+  ensureIhPairs();
   // Players and matches
   if(d.players&&Array.isArray(d.players)&&d.players.length){
     const seedIds=new Set(SEED_PLAYERS.map(p=>p.id));
@@ -673,7 +702,7 @@ function fbListen(){
       if(_fbBanner){_fbBanner.remove();_fbBanner=null;}
       return;
     }
-    if(_fbJoined||S.tab==='scorecard'){
+    if(_fbJoined||S.tab==='scorecard'||S.tab==='results'){
       fbApply(d);
     } else {
       fbShowBanner(d);
@@ -886,7 +915,8 @@ function saveAndPlay(){
   S.courses[nm]={name:nm,holes,slope,rating,par};
   persist();rebuildCourseSelect();
   document.getElementById('hdr-sub').textContent=`${nm} · ${S.date}`;
-  fbPush(); // broadcast round start to all devices
+  _fbJoined=true; // captain never sees their own join banner
+  fbPush();
   goTo('scorecard');
 }
 
@@ -970,6 +1000,10 @@ function activePairs(){
   return res;
 }
 function buildSC(){
+  // Normalize scores in case they came from Firebase as objects instead of arrays
+  S.scores=normalizeScores(S.scores);
+  // Ensure every pair of selected players has an ih entry
+  ensureIhPairs();
   const tbl=document.getElementById('sc-table'),h=hs(),sp=S.sp;
   const n=document.getElementById('sc-notice');
   if(!S.course){n.style.display='block';n.textContent='Sin campo — índices por defecto 1-18.';}else n.style.display='none';
